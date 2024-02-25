@@ -77,12 +77,13 @@ class NIOServer implements Runnable  {
         ServerSocketChannel serverSocketChannel = (ServerSocketChannel) key.channel();
 
         SocketChannel socketChannel = serverSocketChannel.accept();
-        Socket socket = socketChannel.socket();
+        // Socket socket = socketChannel.socket();
         socketChannel.configureBlocking(false);
 
         socketChannel.register(this.selector, SelectionKey.OP_READ);
 
-        System.out.println("new connection accepted");
+
+        System.out.println("new connection accepted "+ String.valueOf(socketChannel.isConnected()));
     }
 
     private void read(SelectionKey key) throws IOException {
@@ -146,6 +147,7 @@ class NIOServer implements Runnable  {
 
     public void run() {
         while (true) {
+            System.out.println("running loop");
             try {
 
                 synchronized (this.changeRequests) {
@@ -156,6 +158,7 @@ class NIOServer implements Runnable  {
                             case ChangeRequest.CHANGEOPS:
                                 SelectionKey key = change.socket.keyFor(this.selector);
                                 key.interestOps(change.ops);
+                                break;
                         }
                     }
                     this.changeRequests.clear();
@@ -173,10 +176,13 @@ class NIOServer implements Runnable  {
                     }
                     
                     if (key.isAcceptable()) {
+                        System.out.println("Server is in accepting state");
                         this.accept(key);
                     } else if (key.isReadable()) {
+                        System.out.println("server is in reading state");
                         this.read(key);
                     } else if (key.isWritable()) {
+                        System.out.println("Server is in writing state");
                         this.write(key);
                     }
                 }

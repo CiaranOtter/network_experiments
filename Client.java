@@ -42,6 +42,7 @@ class NIOClient implements Runnable  {
     }
 
     private SocketChannel initiateConnection() throws IOException {
+        System.out.println("Starting connection");
         SocketChannel socketChannel = SocketChannel.open();
         socketChannel.configureBlocking(false);
 
@@ -70,8 +71,10 @@ class NIOClient implements Runnable  {
             key.cancel();
             return;
         }
-
-        key.interestOps(SelectionKey.OP_WRITE);
+        System.out.println("Connection complete");
+        synchronized (this.changeRequests) {
+            this.changeRequests.add(new ChangeRequest(socketChannel, ChangeRequest.CHANGEOPS, SelectionKey.OP_WRITE));
+        }
     }
 
     private void handleResponse(SocketChannel socketChannel, byte[] data, int numRead) throws IOException {
@@ -116,12 +119,16 @@ class NIOClient implements Runnable  {
             List queue = (List) this.pendingData.get(socketChannel);
             while(!queue.isEmpty()) {
                 ByteBuffer buf = (ByteBuffer) queue.get(0);
+                queue.remove(0);
                 if (buf.remaining() > 0) {
                     break;
                 }
-                queue.remove(0);
+                
             }
+            System.out.println("write buffer has been emptied" + String.valueOf(queue.isEmpty()));
+
             if (queue.isEmpty()) {
+                System.out.println("setting the type of channel to read");
                 key.interestOps(SelectionKey.OP_READ);
             }
         }
@@ -148,6 +155,7 @@ class NIOClient implements Runnable  {
     @Override
     public void run() {
         while (true) {
+            System.out.println("Running loop");
             try {
 
                 synchronized (this.changeRequests) {
@@ -180,11 +188,13 @@ class NIOClient implements Runnable  {
                     }
                     
                     if (key.isConnectable()) {
+                        System.out.println("Key is connectable");
                         this.finishConnection(key);
                     } else if (key.isReadable()) {
+                        System.out.println("key is readable");
                         this.read(key);
                     } else if (key.isWritable()) {
-                        System.out.println("key is readable");
+                        System.out.println("key is writeable");
                         this.write(key);
                     }
                 }
@@ -224,7 +234,7 @@ public class Client {
             Thread t = new Thread(client);
             t.start();
             RspHandler handler = new RspHandler();
-            client.send("Hello World".getBytes(), handler);
+            client.send("Hello World\0".getBytes(), handler);
             handler.waitForResponse();
         } catch (IOException e) {
             e.printStackTrace();
