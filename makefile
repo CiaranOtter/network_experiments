@@ -11,3 +11,4 @@ all: $(FILES)
 
 
 clean:
+	rm -rf $(wildcard *.class)

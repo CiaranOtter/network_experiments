@@ -74,13 +74,13 @@ class NIOClient implements Runnable  {
         key.interestOps(SelectionKey.OP_WRITE);
     }
 
-    private void handlResponse(SocketChannel socketChannel, byte[] data, int numRead) throws IOException {
+    private void handleResponse(SocketChannel socketChannel, byte[] data, int numRead) throws IOException {
         byte[] rspData = new byte[numRead];
         System.arraycopy(data, 0, rspData, 0, numRead);
 
         RspHandler handler = (RspHandler) this.rspHandler.get(socketChannel);
 
-        if (handler.handlResponse(rspData)) {
+        if (handler.handleResponse(rspData)) {
             socketChannel.close();
             socketChannel.keyFor(this.selector).cancel();
         }
@@ -106,10 +106,11 @@ class NIOClient implements Runnable  {
             return;
         }
 
-        this.handlResponse(socketChannel, this.readBuffer.array(), numRead);
+        this.handleResponse(socketChannel, this.readBuffer.array(), numRead);
     }
 
     private void write(SelectionKey key) throws IOException {
+        System.out.println("writing data");
         SocketChannel socketChannel = (SocketChannel) key.channel();
         synchronized (this.pendingData) {
             List queue = (List) this.pendingData.get(socketChannel);
@@ -134,6 +135,7 @@ class NIOClient implements Runnable  {
         synchronized (this.pendingData) {
             List queue = (List) this.pendingData.get(socket);
             if (queue == null) {
+                System.out.println("peding data is null ");
                 queue = new ArrayList();
                 this.pendingData.put(socket, queue);
             }
@@ -143,6 +145,7 @@ class NIOClient implements Runnable  {
         this.selector.wakeup();
     }
 
+    @Override
     public void run() {
         while (true) {
             try {
@@ -172,6 +175,7 @@ class NIOClient implements Runnable  {
                     selectedKeys.remove();
             
                     if (!key.isValid()) {
+                        System.out.println("Key is invalid");
                         continue;
                     }
                     
@@ -180,6 +184,7 @@ class NIOClient implements Runnable  {
                     } else if (key.isReadable()) {
                         this.read(key);
                     } else if (key.isWritable()) {
+                        System.out.println("key is readable");
                         this.write(key);
                     }
                 }
@@ -193,7 +198,7 @@ class NIOClient implements Runnable  {
 class RspHandler {
     private byte[] rsp = null;
 
-    public synchronized boolean handlResponse(byte[] rsp) {
+    public synchronized boolean handleResponse(byte[] rsp) {
         this.rsp = rsp;
         this.notify();
         return true;
@@ -215,11 +220,12 @@ class RspHandler {
 public class Client {
     public static void main(String[] args) {
         try {
-            NIOClient client = new NIOClient(InetAddress.getByName("localhost"), 5000);
+            NIOClient client = new NIOClient(InetAddress.getByName("127.0.0.1"), 5000);
             Thread t = new Thread(client);
-            t.setDaemon(true);
             t.start();
             RspHandler handler = new RspHandler();
+            client.send("Hello World".getBytes(), handler);
+            handler.waitForResponse();
         } catch (IOException e) {
             e.printStackTrace();
         }

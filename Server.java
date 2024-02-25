@@ -81,10 +81,14 @@ class NIOServer implements Runnable  {
         socketChannel.configureBlocking(false);
 
         socketChannel.register(this.selector, SelectionKey.OP_READ);
+
+        System.out.println("new connection accepted");
     }
 
     private void read(SelectionKey key) throws IOException {
         SocketChannel socketChannel = (SocketChannel) key.channel();
+
+        System.out.println("reading data");
 
         this.readBuffer.clear();
 
@@ -189,6 +193,9 @@ class EchoWorker implements Runnable {
     public void processData(NIOServer server, SocketChannel socket, byte[] data, int count) {
         byte[] dataCopy = new byte[count];
         System.arraycopy(data, 0, dataCopy, 0, count);
+
+        System.out.println("Processing data");
+        System.out.println(data);
 
         synchronized(queue) {
             queue.add(new ServerDataEvent(server, socket, dataCopy));
